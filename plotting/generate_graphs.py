@@ -1,13 +1,17 @@
 ﻿import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import numpy as np
 
 # --- Configuration ---
-# The script expects the 'results.csv' file to be in a subfolder of the current directory.
-# For example, if you run from 'pda-otsu-cuda-openmp', it will look in 'pda-otsu-cuda-openmp/imagini_test/output/results.csv'
-# You might need to adjust this path depending on your folder structure.
-CSV_FILE_PATH = 'imagini_test/output/results.csv'
-OUTPUT_DIR = 'plotting'
+# Get the absolute path to the directory containing this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# The project root is one level up from the 'plotting' directory
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+
+# Construct absolute paths
+CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'images', 'output', 'results.csv')
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, 'plotting')
 
 # --- Main Script ---
 def main():
@@ -23,50 +27,76 @@ def main():
     # Read the data
     df = pd.read_csv(CSV_FILE_PATH)
 
-    # Sort by number of pixels for a clean plot
-    df = df.sort_values(by='Pixels')
+    # --- Calculate Speedup and Efficiency ---
+    # Speedup = T_cpu / T_parallel
+    df['Speedup_OMP'] = df['Time_CPU_ms'] / df['Time_OMP_ms']
+    df['Speedup_TBB'] = df['Time_CPU_ms'] / df['Time_TBB_ms']
 
-    # --- 1. Execution Time vs. Image Size ---
-    plt.figure(figsize=(12, 8))
-    plt.plot(df['Pixels'], df['Time_CPU_ms'], marker='o', linestyle='-', label='CPU (Sequential)')
-    plt.plot(df['Pixels'], df['Time_OMP_ms'], marker='s', linestyle='-', label='OpenMP')
-    plt.plot(df['Pixels'], df['Time_CUDA_ms'], marker='^', linestyle='-', label='CUDA')
+    # Efficiency = Speedup / Number of Threads
+    df['Efficiency_OMP'] = df['Speedup_OMP'] / df['Threads_OMP']
+    df['Efficiency_TBB'] = df['Speedup_TBB'] / df['Threads_TBB']
 
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.title('Execution Time vs. Image Size (Log-Log Scale)')
-    plt.xlabel('Image Size (Total Pixels)')
-    plt.ylabel('Execution Time (milliseconds)')
-    plt.grid(True, which="both", ls="--")
-    plt.legend()
+    # --- Calculate Average Metrics ---
+    # We calculate the average across all images processed in the CSV
+    avg_metrics = {
+        'Time_CPU': df['Time_CPU_ms'].mean(),
+        'Time_OMP': df['Time_OMP_ms'].mean(),
+        'Time_TBB': df['Time_TBB_ms'].mean(),
+        'Speedup_OMP': df['Speedup_OMP'].mean(),
+        'Speedup_TBB': df['Speedup_TBB'].mean(),
+        'Efficiency_OMP': df['Efficiency_OMP'].mean(),
+        'Efficiency_TBB': df['Efficiency_TBB'].mean(),
+    }
 
-    time_plot_path = os.path.join(OUTPUT_DIR, 'execution_time_vs_size.png')
+    print("Average Metrics:")
+    for key, value in avg_metrics.items():
+        print(f"  {key}: {value:.4f}")
+
+    # --- 1. Execution Time Comparison ---
+    plt.figure(figsize=(10, 6))
+    methods = ['CPU', 'OpenMP', 'TBB']
+    times = [avg_metrics['Time_CPU'], avg_metrics['Time_OMP'], avg_metrics['Time_TBB']]
+    
+    bars = plt.bar(methods, times, color=['skyblue', 'lightgreen', 'salmon'])
+    plt.ylabel('Average Execution Time (ms)')
+    plt.title('Average Execution Time Comparison')
+    plt.bar_label(bars, fmt='%.2f ms')
+
+    time_plot_path = os.path.join(OUTPUT_DIR, 'time_comparison.png')
     plt.savefig(time_plot_path)
-    print(f"Saved time plot to '{time_plot_path}'")
+    print(f"\nSaved time comparison plot to '{time_plot_path}'")
     plt.close()
 
+    # --- 2. Speedup Comparison ---
+    plt.figure(figsize=(10, 6))
+    parallel_methods = ['OpenMP', 'TBB']
+    speedups = [avg_metrics['Speedup_OMP'], avg_metrics['Speedup_TBB']]
 
-    # --- 2. Speedup vs. Image Size ---
-    # Speedup is calculated as T_cpu / T_parallel
-    df['Speedup_OMP'] = df['Time_CPU_ms'] / df['Time_OMP_ms']
-    df['Speedup_CUDA'] = df['Time_CPU_ms'] / df['Time_CUDA_ms']
-
-    plt.figure(figsize=(12, 8))
-    plt.plot(df['Pixels'], df['Speedup_OMP'], marker='s', linestyle='-', label='Speedup OpenMP vs. CPU')
-    plt.plot(df['Pixels'], df['Speedup_CUDA'], marker='^', linestyle='-', label='Speedup CUDA vs. CPU')
-
-    plt.xscale('log')
-    plt.title('Speedup vs. Image Size')
-    plt.xlabel('Image Size (Total Pixels)')
-    plt.ylabel('Speedup (Factor, e.g., 2x, 10x)')
-    plt.grid(True, which="both", ls="--")
-    plt.legend()
-    # Add a horizontal line at y=1 for reference (no speedup)
+    bars = plt.bar(parallel_methods, speedups, color=['lightgreen', 'salmon'])
     plt.axhline(y=1, color='r', linestyle='--', label='No Speedup')
-
-    speedup_plot_path = os.path.join(OUTPUT_DIR, 'speedup_vs_size.png')
+    plt.ylabel('Speedup Factor (vs. CPU)')
+    plt.title('Average Speedup Comparison')
+    plt.bar_label(bars, fmt='%.2fx')
+    
+    speedup_plot_path = os.path.join(OUTPUT_DIR, 'speedup_comparison.png')
     plt.savefig(speedup_plot_path)
-    print(f"Saved speedup plot to '{speedup_plot_path}'")
+    print(f"Saved speedup comparison plot to '{speedup_plot_path}'")
+    plt.close()
+
+    # --- 3. Efficiency Comparison ---
+    plt.figure(figsize=(10, 6))
+    efficiencies = [avg_metrics['Efficiency_OMP'], avg_metrics['Efficiency_TBB']]
+
+    bars = plt.bar(parallel_methods, efficiencies, color=['lightgreen', 'salmon'])
+    plt.axhline(y=1, color='r', linestyle='--', label='Ideal Efficiency')
+    plt.ylabel('Efficiency (Speedup / Threads)')
+    plt.title('Average Parallel Efficiency')
+    plt.ylim(0, 1.2) # Efficiency is typically between 0 and 1
+    plt.bar_label(bars, fmt='%.2f')
+
+    efficiency_plot_path = os.path.join(OUTPUT_DIR, 'efficiency_comparison.png')
+    plt.savefig(efficiency_plot_path)
+    print(f"Saved efficiency comparison plot to '{efficiency_plot_path}'")
     plt.close()
 
 if __name__ == '__main__':

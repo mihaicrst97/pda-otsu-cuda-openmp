@@ -7,6 +7,7 @@
 // Structure to hold the execution results
 struct SobelResult {
     double time_total_ms;
+    int threads_used;
 };
 
 // Function declarations

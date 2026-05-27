@@ -14,10 +14,16 @@
 
 namespace fs = std::filesystem;
 
-void print_results(const std::string& name, const SobelResult& result) {
+void print_results(const std::string& name, const SobelResult& result, double time_cpu) {
+    double speedup = (result.threads_used > 0) ? time_cpu / result.time_total_ms : 0.0;
+    double efficiency = (result.threads_used > 0) ? speedup / result.threads_used : 0.0;
+
     std::cout << std::left << std::setw(10) << name
               << std::fixed << std::setprecision(4)
               << std::setw(15) << result.time_total_ms
+              << std::setw(10) << result.threads_used
+              << std::setw(15) << speedup
+              << std::setw(15) << efficiency
               << std::endl;
 }
 
@@ -35,7 +41,7 @@ void process_image(const fs::path& input_path, const fs::path& output_dir, std::
     }
 
     int pixels = width * height;
-    std::cout << "Resolution: " << width << "x" << height << " (" << pixels << " pixels)\n";
+    std::cout << "Resolution: " << width << "x" << height << " (" << pixels << " pixels)\n\n";
 
     std::vector<unsigned char> image_out_cpu(pixels);
     std::vector<unsigned char> image_out_omp(pixels);
@@ -45,18 +51,17 @@ void process_image(const fs::path& input_path, const fs::path& output_dir, std::
     SobelResult result_omp = run_sobel_omp(image_data, image_out_omp.data(), width, height);
     SobelResult result_tbb = run_sobel_tbb(image_data, image_out_tbb.data(), width, height);
 
-    std::cout << std::left << std::setw(10) << "Method" << std::setw(15) << "Time (ms)" << std::endl;
-    print_results("CPU", result_cpu);
-    print_results("OpenMP", result_omp);
-    print_results("TBB", result_tbb);
-
-    // Calculate speedups
-    double speedup_omp = result_cpu.time_total_ms / result_omp.time_total_ms;
-    double speedup_tbb = result_cpu.time_total_ms / result_tbb.time_total_ms;
+    std::cout << std::left 
+              << std::setw(10) << "Method" 
+              << std::setw(15) << "Time (ms)" 
+              << std::setw(10) << "Threads"
+              << std::setw(15) << "Speedup"
+              << std::setw(15) << "Efficiency"
+              << std::endl;
     
-    std::cout << std::endl;
-    std::cout << "Speedup OpenMP vs CPU: " << std::fixed << std::setprecision(2) << speedup_omp << "x" << std::endl;
-    std::cout << "Speedup TBB vs CPU:    " << std::fixed << std::setprecision(2) << speedup_tbb << "x" << std::endl;
+    print_results("CPU", result_cpu, result_cpu.time_total_ms);
+    print_results("OpenMP", result_omp, result_cpu.time_total_ms);
+    print_results("TBB", result_tbb, result_cpu.time_total_ms);
 
     // Save outputs
     std::string base_name = input_path.stem().string();
@@ -67,7 +72,9 @@ void process_image(const fs::path& input_path, const fs::path& output_dir, std::
     // Write to CSV
     if (csv_file.is_open()) {
         csv_file << input_path.filename().string() << "," << width << "," << height << "," << pixels << ","
-                 << result_cpu.time_total_ms << "," << result_omp.time_total_ms << "," << result_tbb.time_total_ms << "\n";
+                 << result_cpu.time_total_ms << "," << result_cpu.threads_used << ","
+                 << result_omp.time_total_ms << "," << result_omp.threads_used << ","
+                 << result_tbb.time_total_ms << "," << result_tbb.threads_used << "\n";
     }
 
     stbi_image_free(image_data);
@@ -100,7 +107,10 @@ int main(int argc, char** argv) {
     // Open CSV file
     std::ofstream csv_file(output_dir / "results.csv");
     if (csv_file.is_open()) {
-        csv_file << "Image,Width,Height,Pixels,Time_CPU_ms,Time_OMP_ms,Time_TBB_ms\n";
+        csv_file << "Image,Width,Height,Pixels,"
+                 << "Time_CPU_ms,Threads_CPU,"
+                 << "Time_OMP_ms,Threads_OMP,"
+                 << "Time_TBB_ms,Threads_TBB\n";
     } else {
         std::cerr << "Warning: Could not open results.csv for writing." << std::endl;
     }

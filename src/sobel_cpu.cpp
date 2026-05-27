@@ -43,6 +43,7 @@ SobelResult run_sobel_cpu(const unsigned char* image_in, unsigned char* image_ou
     
     SobelResult result;
     result.time_total_ms = std::chrono::duration<double, std::milli>(end - start).count();
+    result.threads_used = 1; // CPU is sequential
     
     return result;
 }

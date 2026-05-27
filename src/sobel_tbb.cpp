@@ -4,9 +4,13 @@
 #include <algorithm>
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range2d.h>
+#include <tbb/global_control.h>
 
 SobelResult run_sobel_tbb(const unsigned char* image_in, unsigned char* image_out, int width, int height) {
     auto start = std::chrono::high_resolution_clock::now();
+
+    // Get the number of threads TBB will use
+    int threads_used = tbb::global_control::active_value(tbb::global_control::max_allowed_parallelism);
 
     // Sobel kernels
     int gx[3][3] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
@@ -54,6 +58,7 @@ SobelResult run_sobel_tbb(const unsigned char* image_in, unsigned char* image_ou
     
     SobelResult result;
     result.time_total_ms = std::chrono::duration<double, std::milli>(end - start).count();
+    result.threads_used = threads_used;
     
     return result;
 }

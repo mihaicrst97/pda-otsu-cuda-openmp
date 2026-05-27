@@ -3,41 +3,37 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 
-# --- Configuration ---
-# Get the absolute path to the directory containing this script
+# path absolut pentru directorul cu script ul
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-# The project root is one level up from the 'plotting' directory
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 
-# Construct absolute paths
+# construire path uri absolute
 CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'images', 'output', 'results.csv')
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, 'plotting')
 
-# --- Main Script ---
 def main():
     if not os.path.exists(CSV_FILE_PATH):
         print(f"Error: CSV file not found at '{CSV_FILE_PATH}'")
         print("Please run the C++ project first to generate the results.csv file.")
         return
 
-    # Create output directory if it doesn't exist
+    # creaza un folder output daca nu exista deja
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
 
-    # Read the data
+    # citire date
     df = pd.read_csv(CSV_FILE_PATH)
 
-    # --- Calculate Speedup and Efficiency ---
-    # Speedup = T_cpu / T_parallel
+    # calcul speedup si efficiency
+    # speedup = t_cpu / t_parallel
     df['Speedup_OMP'] = df['Time_CPU_ms'] / df['Time_OMP_ms']
     df['Speedup_TBB'] = df['Time_CPU_ms'] / df['Time_TBB_ms']
 
-    # Efficiency = Speedup / Number of Threads
+    # efficiency = speedup / no of threads
     df['Efficiency_OMP'] = df['Speedup_OMP'] / df['Threads_OMP']
     df['Efficiency_TBB'] = df['Speedup_TBB'] / df['Threads_TBB']
 
-    # --- Calculate Average Metrics ---
-    # We calculate the average across all images processed in the CSV
+    # calcul average metrics
     avg_metrics = {
         'Time_CPU': df['Time_CPU_ms'].mean(),
         'Time_OMP': df['Time_OMP_ms'].mean(),
@@ -52,7 +48,7 @@ def main():
     for key, value in avg_metrics.items():
         print(f"  {key}: {value:.4f}")
 
-    # --- 1. Execution Time Comparison ---
+    # comparatie timp la executare
     plt.figure(figsize=(10, 6))
     methods = ['CPU', 'OpenMP', 'TBB']
     times = [avg_metrics['Time_CPU'], avg_metrics['Time_OMP'], avg_metrics['Time_TBB']]
@@ -67,7 +63,7 @@ def main():
     print(f"\nSaved time comparison plot to '{time_plot_path}'")
     plt.close()
 
-    # --- 2. Speedup Comparison ---
+    # comparatie viteza
     plt.figure(figsize=(10, 6))
     parallel_methods = ['OpenMP', 'TBB']
     speedups = [avg_metrics['Speedup_OMP'], avg_metrics['Speedup_TBB']]
@@ -83,7 +79,7 @@ def main():
     print(f"Saved speedup comparison plot to '{speedup_plot_path}'")
     plt.close()
 
-    # --- 3. Efficiency Comparison ---
+    # comparatie eficienta
     plt.figure(figsize=(10, 6))
     efficiencies = [avg_metrics['Efficiency_OMP'], avg_metrics['Efficiency_TBB']]
 
@@ -91,7 +87,7 @@ def main():
     plt.axhline(y=1, color='r', linestyle='--', label='Ideal Efficiency')
     plt.ylabel('Efficiency (Speedup / Threads)')
     plt.title('Average Parallel Efficiency')
-    plt.ylim(0, 1.2) # Efficiency is typically between 0 and 1
+    plt.ylim(0, 1.2) # eficienta e intre 0 si 1 de obicei
     plt.bar_label(bars, fmt='%.2f')
 
     efficiency_plot_path = os.path.join(OUTPUT_DIR, 'efficiency_comparison.png')

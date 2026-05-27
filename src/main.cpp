@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <filesystem>
 #include <fstream>
-#include <algorithm> // Added missing include
+#include <algorithm> 
 #include "common.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -32,7 +32,7 @@ void process_image(const fs::path& input_path, const fs::path& output_dir, std::
     std::cout << "Processing: " << input_path.filename().string() << std::endl;
 
     int width, height, channels;
-    // Load as grayscale (1 channel)
+    // incarcare ca grayscale (1 channel)
     unsigned char* image_data = stbi_load(input_path.string().c_str(), &width, &height, &channels, 1);
 
     if (!image_data) {
@@ -63,13 +63,13 @@ void process_image(const fs::path& input_path, const fs::path& output_dir, std::
     print_results("OpenMP", result_omp, result_cpu.time_total_ms);
     print_results("TBB", result_tbb, result_cpu.time_total_ms);
 
-    // Save outputs
+    // salvare output uri
     std::string base_name = input_path.stem().string();
     stbi_write_png((output_dir / (base_name + "_out_cpu.png")).string().c_str(), width, height, 1, image_out_cpu.data(), width);
     stbi_write_png((output_dir / (base_name + "_out_omp.png")).string().c_str(), width, height, 1, image_out_omp.data(), width);
     stbi_write_png((output_dir / (base_name + "_out_tbb.png")).string().c_str(), width, height, 1, image_out_tbb.data(), width);
 
-    // Write to CSV
+    // scriere in csv
     if (csv_file.is_open()) {
         csv_file << input_path.filename().string() << "," << width << "," << height << "," << pixels << ","
                  << result_cpu.time_total_ms << "," << result_cpu.threads_used << ","
@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
         fs::create_directory(output_dir);
     }
 
-    // Open CSV file
+    // deschidere  csv
     std::ofstream csv_file(output_dir / "results.csv");
     if (csv_file.is_open()) {
         csv_file << "Image,Width,Height,Pixels,"

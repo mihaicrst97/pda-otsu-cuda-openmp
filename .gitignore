@@ -67,3 +67,20 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# macOS
+.DS_Store
+
+# clion
+.idea/
+cmake-build-*/
+
+# executabile
+*.o
+*.out
+*.exe
+
+# imagini mari
+data/*.jpg
+data/*.png
+!data/sample_small.jpg  # Permite încărcarea unei singure imagini mici pentru test/demo

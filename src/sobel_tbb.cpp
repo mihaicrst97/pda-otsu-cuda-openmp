@@ -9,10 +9,10 @@
 SobelResult run_sobel_tbb(const unsigned char* image_in, unsigned char* image_out, int width, int height) {
     auto start = std::chrono::high_resolution_clock::now();
 
-    // Get the number of threads TBB will use
+    // nr de thread uri folosite de tbb
     int threads_used = tbb::global_control::active_value(tbb::global_control::max_allowed_parallelism);
 
-    // Sobel kernels
+    // kernel uri sobel
     int gx[3][3] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
     int gy[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
 
@@ -37,20 +37,20 @@ SobelResult run_sobel_tbb(const unsigned char* image_in, unsigned char* image_ou
             }
         });
 
-    // Handle borders (set to 0 for simplicity)
+    // contur
     tbb::parallel_for(tbb::blocked_range<int>(0, width),
         [&](const tbb::blocked_range<int>& r) {
             for (int x = r.begin(); x != r.end(); ++x) {
-                image_out[x] = 0;                           // Top row
-                image_out[(height - 1) * width + x] = 0;  // Bottom row
+                image_out[x] = 0;                           // rand sus
+                image_out[(height - 1) * width + x] = 0;  // rand jos
             }
         });
 
     tbb::parallel_for(tbb::blocked_range<int>(0, height),
         [&](const tbb::blocked_range<int>& r) {
             for (int y = r.begin(); y != r.end(); ++y) {
-                image_out[y * width] = 0;                   // Left column
-                image_out[y * width + (width - 1)] = 0;   // Right column
+                image_out[y * width] = 0;                   // col st
+                image_out[y * width + (width - 1)] = 0;   // col dr
             }
         });
 

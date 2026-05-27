@@ -8,7 +8,7 @@ SobelResult run_sobel_omp(const unsigned char* image_in, unsigned char* image_ou
     auto start = std::chrono::high_resolution_clock::now();
     int threads_used = 0;
 
-    // Sobel kernels
+    // kernel uri sobel
     int gx[3][3] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
     int gy[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
 
@@ -38,16 +38,16 @@ SobelResult run_sobel_omp(const unsigned char* image_in, unsigned char* image_ou
         }
     }
 
-    // Handle borders (set to 0 for simplicity)
+    // contur
     #pragma omp parallel for
     for (int x = 0; x < width; ++x) {
-        image_out[x] = 0;                           // Top row
-        image_out[(height - 1) * width + x] = 0;  // Bottom row
+        image_out[x] = 0;                           // rand sus
+        image_out[(height - 1) * width + x] = 0;  // rand jos
     }
     #pragma omp parallel for
     for (int y = 0; y < height; ++y) {
-        image_out[y * width] = 0;                   // Left column
-        image_out[y * width + (width - 1)] = 0;   // Right column
+        image_out[y * width] = 0;                   // col st
+        image_out[y * width + (width - 1)] = 0;   // col dr
     }
 
     auto end = std::chrono::high_resolution_clock::now();

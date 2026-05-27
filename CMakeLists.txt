@@ -4,13 +4,13 @@ project(SobelComparison LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Find OpenMP
+# gasire openmp
 find_package(OpenMP REQUIRED)
 
-# Find TBB
+# gasire tbb
 find_package(TBB REQUIRED)
 
-# Fetch stb_image for image reading/writing
+# fetch stb_image pt image reading/writing
 include(FetchContent)
 FetchContent_Declare(
     stb
@@ -19,7 +19,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(stb)
 
-# Define the executable
+# definire executabil
 add_executable(sobel_project
     src/main.cpp
     src/sobel_cpu.cpp
@@ -27,9 +27,9 @@ add_executable(sobel_project
     src/sobel_tbb.cpp
 )
 
-# Include directories
+# includere directoare
 target_include_directories(sobel_project PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(sobel_project PRIVATE ${stb_SOURCE_DIR})
 
-# Link libraries
+# librarii link
 target_link_libraries(sobel_project PRIVATE OpenMP::OpenMP_CXX TBB::tbb)

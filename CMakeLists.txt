@@ -1,12 +1,14 @@
 ﻿cmake_minimum_required(VERSION 3.18)
-project(OtsuThresholding LANGUAGES CXX CUDA)
+project(SobelComparison LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find OpenMP
 find_package(OpenMP REQUIRED)
+
+# Find TBB
+find_package(TBB REQUIRED)
 
 # Fetch stb_image for image reading/writing
 include(FetchContent)
@@ -18,22 +20,16 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(stb)
 
 # Define the executable
-add_executable(otsu_project
+add_executable(sobel_project
     src/main.cpp
-    src/otsu_cpu.cpp
-    src/otsu_omp.cpp
-    src/otsu_cuda.cu
-        src/main.cpp
-        src/main.cpp
+    src/sobel_cpu.cpp
+    src/sobel_omp.cpp
+    src/sobel_tbb.cpp
 )
 
 # Include directories
-target_include_directories(otsu_project PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_include_directories(otsu_project PRIVATE ${stb_SOURCE_DIR})
+target_include_directories(sobel_project PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(sobel_project PRIVATE ${stb_SOURCE_DIR})
 
-# Link OpenMP
-target_link_libraries(otsu_project PRIVATE OpenMP::OpenMP_CXX)
-
-# Set CUDA architectures
-# You can change "native" to a specific compute capability like "75" if native fails
-set_target_properties(otsu_project PROPERTIES CUDA_ARCHITECTURES "native")
+# Link libraries
+target_link_libraries(sobel_project PRIVATE OpenMP::OpenMP_CXX TBB::tbb)

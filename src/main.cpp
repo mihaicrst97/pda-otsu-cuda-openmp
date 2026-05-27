@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <filesystem>
 #include <fstream>
+#include <algorithm> // Added missing include
 #include "common.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -13,14 +14,10 @@
 
 namespace fs = std::filesystem;
 
-void print_results(const std::string& name, const OtsuResult& result) {
+void print_results(const std::string& name, const SobelResult& result) {
     std::cout << std::left << std::setw(10) << name
               << std::fixed << std::setprecision(4)
-              << std::setw(15) << result.time_histogram_ms
-              << std::setw(15) << result.time_threshold_ms
-              << std::setw(15) << result.time_apply_ms
               << std::setw(15) << result.time_total_ms
-              << std::setw(10) << result.threshold
               << std::endl;
 }
 
@@ -29,6 +26,7 @@ void process_image(const fs::path& input_path, const fs::path& output_dir, std::
     std::cout << "Processing: " << input_path.filename().string() << std::endl;
 
     int width, height, channels;
+    // Load as grayscale (1 channel)
     unsigned char* image_data = stbi_load(input_path.string().c_str(), &width, &height, &channels, 1);
 
     if (!image_data) {
@@ -41,26 +39,35 @@ void process_image(const fs::path& input_path, const fs::path& output_dir, std::
 
     std::vector<unsigned char> image_out_cpu(pixels);
     std::vector<unsigned char> image_out_omp(pixels);
-    std::vector<unsigned char> image_out_cuda(pixels);
+    std::vector<unsigned char> image_out_tbb(pixels);
 
-    OtsuResult result_cpu = run_otsu_cpu(image_data, image_out_cpu.data(), width, height);
-    OtsuResult result_omp = run_otsu_omp(image_data, image_out_omp.data(), width, height);
-    OtsuResult result_cuda = run_otsu_cuda(image_data, image_out_cuda.data(), width, height);
+    SobelResult result_cpu = run_sobel_cpu(image_data, image_out_cpu.data(), width, height);
+    SobelResult result_omp = run_sobel_omp(image_data, image_out_omp.data(), width, height);
+    SobelResult result_tbb = run_sobel_tbb(image_data, image_out_tbb.data(), width, height);
 
+    std::cout << std::left << std::setw(10) << "Method" << std::setw(15) << "Time (ms)" << std::endl;
     print_results("CPU", result_cpu);
     print_results("OpenMP", result_omp);
-    print_results("CUDA", result_cuda);
+    print_results("TBB", result_tbb);
+
+    // Calculate speedups
+    double speedup_omp = result_cpu.time_total_ms / result_omp.time_total_ms;
+    double speedup_tbb = result_cpu.time_total_ms / result_tbb.time_total_ms;
+    
+    std::cout << std::endl;
+    std::cout << "Speedup OpenMP vs CPU: " << std::fixed << std::setprecision(2) << speedup_omp << "x" << std::endl;
+    std::cout << "Speedup TBB vs CPU:    " << std::fixed << std::setprecision(2) << speedup_tbb << "x" << std::endl;
 
     // Save outputs
     std::string base_name = input_path.stem().string();
     stbi_write_png((output_dir / (base_name + "_out_cpu.png")).string().c_str(), width, height, 1, image_out_cpu.data(), width);
     stbi_write_png((output_dir / (base_name + "_out_omp.png")).string().c_str(), width, height, 1, image_out_omp.data(), width);
-    stbi_write_png((output_dir / (base_name + "_out_cuda.png")).string().c_str(), width, height, 1, image_out_cuda.data(), width);
+    stbi_write_png((output_dir / (base_name + "_out_tbb.png")).string().c_str(), width, height, 1, image_out_tbb.data(), width);
 
     // Write to CSV
     if (csv_file.is_open()) {
         csv_file << input_path.filename().string() << "," << width << "," << height << "," << pixels << ","
-                 << result_cpu.time_total_ms << "," << result_omp.time_total_ms << "," << result_cuda.time_total_ms << "\n";
+                 << result_cpu.time_total_ms << "," << result_omp.time_total_ms << "," << result_tbb.time_total_ms << "\n";
     }
 
     stbi_image_free(image_data);
@@ -93,7 +100,7 @@ int main(int argc, char** argv) {
     // Open CSV file
     std::ofstream csv_file(output_dir / "results.csv");
     if (csv_file.is_open()) {
-        csv_file << "Image,Width,Height,Pixels,Time_CPU_ms,Time_OMP_ms,Time_CUDA_ms\n";
+        csv_file << "Image,Width,Height,Pixels,Time_CPU_ms,Time_OMP_ms,Time_TBB_ms\n";
     } else {
         std::cerr << "Warning: Could not open results.csv for writing." << std::endl;
     }

@@ -4,7 +4,11 @@
 #include <algorithm>
 #include <omp.h>
 
-SobelResult run_sobel_omp(const unsigned char* image_in, unsigned char* image_out, int width, int height) {
+SobelResult run_sobel_omp(const unsigned char* image_in, unsigned char* image_out, int width, int height, int num_threads) {
+    if (num_threads > 0) {
+        omp_set_num_threads(num_threads);
+    }
+
     auto start = std::chrono::high_resolution_clock::now();
     int threads_used = 0;
 

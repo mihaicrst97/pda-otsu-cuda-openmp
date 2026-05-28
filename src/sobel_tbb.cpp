@@ -5,14 +5,23 @@
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range2d.h>
 #include <tbb/global_control.h>
+#include <memory>
 
-SobelResult run_sobel_tbb(const unsigned char* image_in, unsigned char* image_out, int width, int height) {
+SobelResult run_sobel_tbb(const unsigned char* image_in, unsigned char* image_out, int width, int height, int num_threads) {
+    // This scope is crucial. The global_control object must be destroyed
+    // before the function returns to release the constraint.
+    std::unique_ptr<tbb::global_control> control;
+    if (num_threads > 0) {
+        control = std::make_unique<tbb::global_control>(
+            tbb::global_control::max_allowed_parallelism, num_threads);
+    }
+
     auto start = std::chrono::high_resolution_clock::now();
 
-    // nr de thread uri folosite de tbb
+    // Get the actual number of threads TBB will use under this constraint
     int threads_used = tbb::global_control::active_value(tbb::global_control::max_allowed_parallelism);
 
-    // kernel uri sobel
+    // Sobel kernels
     int gx[3][3] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
     int gy[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
 
@@ -37,20 +46,20 @@ SobelResult run_sobel_tbb(const unsigned char* image_in, unsigned char* image_ou
             }
         });
 
-    // contur
+    // Handle borders
     tbb::parallel_for(tbb::blocked_range<int>(0, width),
         [&](const tbb::blocked_range<int>& r) {
             for (int x = r.begin(); x != r.end(); ++x) {
-                image_out[x] = 0;                           // rand sus
-                image_out[(height - 1) * width + x] = 0;  // rand jos
+                image_out[x] = 0;
+                image_out[(height - 1) * width + x] = 0;
             }
         });
 
     tbb::parallel_for(tbb::blocked_range<int>(0, height),
         [&](const tbb::blocked_range<int>& r) {
             for (int y = r.begin(); y != r.end(); ++y) {
-                image_out[y * width] = 0;                   // col st
-                image_out[y * width + (width - 1)] = 0;   // col dr
+                image_out[y * width] = 0;
+                image_out[y * width + (width - 1)] = 0;
             }
         });
 

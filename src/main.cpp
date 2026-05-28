@@ -1,0 +1,133 @@
+﻿#include <iostream>
+#include <vector>
+#include <string>
+#include <iomanip>
+#include <filesystem>
+#include <fstream>
+#include <algorithm> 
+#include <cstdlib> // For atoi
+#include "common.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+namespace fs = std::filesystem;
+
+void print_results(const std::string& name, const SobelResult& result, double time_cpu) {
+    double speedup = (result.threads_used > 0) ? time_cpu / result.time_total_ms : 0.0;
+    double efficiency = (result.threads_used > 0) ? speedup / result.threads_used : 0.0;
+
+    std::cout << std::left << std::setw(10) << name
+              << std::fixed << std::setprecision(4)
+              << std::setw(15) << result.time_total_ms
+              << std::setw(10) << result.threads_used
+              << std::setw(15) << speedup
+              << std::setw(15) << efficiency
+              << std::endl;
+}
+
+void process_image(const fs::path& input_path, const fs::path& output_dir, std::ofstream& csv_file, int num_threads) {
+    std::cout << "\n================================================================================\n";
+    std::cout << "Processing: " << input_path.filename().string() << " with " << num_threads << " threads." << std::endl;
+
+    int width, height, channels;
+    unsigned char* image_data = stbi_load(input_path.string().c_str(), &width, &height, &channels, 1);
+
+    if (!image_data) {
+        std::cerr << "Error loading image: " << input_path.string() << std::endl;
+        return;
+    }
+
+    int pixels = width * height;
+    std::cout << "Resolution: " << width << "x" << height << " (" << pixels << " pixels)\n\n";
+
+    std::vector<unsigned char> image_out_cpu(pixels);
+    std::vector<unsigned char> image_out_omp(pixels);
+    std::vector<unsigned char> image_out_tbb(pixels);
+
+    SobelResult result_cpu = run_sobel_cpu(image_data, image_out_cpu.data(), width, height);
+    SobelResult result_omp = run_sobel_omp(image_data, image_out_omp.data(), width, height, num_threads);
+    SobelResult result_tbb = run_sobel_tbb(image_data, image_out_tbb.data(), width, height, num_threads);
+
+    std::cout << std::left 
+              << std::setw(10) << "Method" 
+              << std::setw(15) << "Time (ms)" 
+              << std::setw(10) << "Threads"
+              << std::setw(15) << "Speedup"
+              << std::setw(15) << "Efficiency"
+              << std::endl;
+    
+    print_results("CPU", result_cpu, result_cpu.time_total_ms);
+    print_results("OpenMP", result_omp, result_cpu.time_total_ms);
+    print_results("TBB", result_tbb, result_cpu.time_total_ms);
+
+    std::string base_name = input_path.stem().string();
+    stbi_write_png((output_dir / (base_name + "_out_cpu.png")).string().c_str(), width, height, 1, image_out_cpu.data(), width);
+    stbi_write_png((output_dir / (base_name + "_out_omp.png")).string().c_str(), width, height, 1, image_out_omp.data(), width);
+    stbi_write_png((output_dir / (base_name + "_out_tbb.png")).string().c_str(), width, height, 1, image_out_tbb.data(), width);
+
+    if (csv_file.is_open()) {
+        csv_file << input_path.filename().string() << "," << width << "," << height << "," << pixels << ","
+                 << result_cpu.time_total_ms << "," << result_cpu.threads_used << ","
+                 << result_omp.time_total_ms << "," << result_omp.threads_used << ","
+                 << result_tbb.time_total_ms << "," << result_tbb.threads_used << "\n";
+    }
+
+    stbi_image_free(image_data);
+}
+
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <input_image_or_directory_path> [num_threads]" << std::endl;
+        return 1;
+    }
+
+    fs::path target_path = argv[1];
+    int num_threads = 0; // Default to auto
+    if (argc > 2) {
+        num_threads = std::atoi(argv[2]);
+    }
+
+    if (!fs::exists(target_path)) {
+        std::cerr << "Error: Path does not exist: " << target_path << std::endl;
+        return 1;
+    }
+
+    fs::path output_dir = fs::is_regular_file(target_path) ? target_path.parent_path() / "output" : target_path / "output";
+    if (!fs::exists(output_dir)) {
+        fs::create_directory(output_dir);
+    }
+
+    fs::path csv_path = output_dir / "results.csv";
+    bool csv_exists = fs::exists(csv_path);
+    
+    std::ofstream csv_file(csv_path, std::ios_base::app);
+
+    if (!csv_file.is_open()) {
+        std::cerr << "Warning: Could not open results.csv for writing." << std::endl;
+    } else if (!csv_exists) {
+        csv_file << "Image,Width,Height,Pixels,"
+                 << "Time_CPU_ms,Threads_CPU,"
+                 << "Time_OMP_ms,Threads_OMP,"
+                 << "Time_TBB_ms,Threads_TBB\n";
+    }
+
+    if (fs::is_regular_file(target_path)) {
+        process_image(target_path, output_dir, csv_file, num_threads);
+    } else if (fs::is_directory(target_path)) {
+        for (const auto& entry : fs::directory_iterator(target_path)) {
+            std::string ext = entry.path().extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (entry.is_regular_file() && (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp")) {
+                process_image(entry.path(), output_dir, csv_file, num_threads);
+            }
+        }
+    }
+
+    if (csv_file.is_open()) {
+        csv_file.close();
+    }
+    return 0;
+}

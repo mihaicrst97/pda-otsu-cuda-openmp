@@ -83,4 +83,13 @@ cmake-build-*/
 # imagini mari
 data/*.jpg
 data/*.png
-!data/sample_small.jpg  # Permite încărcarea unei singure imagini mici pentru test/demo
+!data/sample_small.jpg  
+
+# project-specific output
+output/
+images/output/
+results.csv
+
+# python virtual environment
+.venv/
+venv/
